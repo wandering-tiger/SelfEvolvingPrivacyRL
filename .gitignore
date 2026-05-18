@@ -1,0 +1,140 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# mypy
+.mypy_cache/
+.dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# VS Code
+.vscode/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Data and model outputs
+*.parquet
+*.h5
+*.pt
+*.ckpt
+*.log
+*.tmp
+*.bak
+*.pkl
+*.npy
+*.npz
+*.csv
+*.tsv
+*.xlsx
+*.zip
+*.tar.gz
+*.tar
+*.rar
+*.7z
+*.swp
+*.swo
+
+# Custom project folders
+/data/
+/assets/
+/runs/
+/cache/
+/saves/
+/output/
+
+# Wheel files
+*.whl
+
+# Docker
+*.pid
+
+# Ignore secrets
+*.key
+*.pem
+*.crt
+*.env
+.env.*
+
+# Ignore large binaries
+*.bin
+
+# Ignore logs
+*.log
+logs/
+
+# Ignore legacy or backup files
+*~
+*.bak
+*.old
+*.orig
+
+# Ignore compiled C/C++
+*.o
+*.a
+*.dylib
+*.dll
+*.exe
+*.out
+*.obj
+*.pdb
+
+# Ignore shell history
+.bash_history
+
+# Ignore conda environments
+miniconda3/
+Miniconda3-latest-Linux-x86_64.sh
+
+# Ignore wheel cache
+*.egg-info/
+
+# Ignore flash attention wheel
+flash_attn-*.whl
