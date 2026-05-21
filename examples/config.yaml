@@ -1,6 +1,6 @@
 data:
-  train_files: /home/fangzibang/privacy_attacker_module/data/train.parquet
-  val_files: /home/fangzibang/privacy_attacker_module/data/val.parquet
+  train_files: /home/fangzibang/SelfEvolvingPrivacyRL/data/train.json
+  val_files: /home/fangzibang/SelfEvolvingPrivacyRL/data/val.json
   prompt_key: prompt
   answer_key: target
   image_key: images
@@ -9,9 +9,9 @@ data:
   video_fps: 2.0
   max_prompt_length: 2048
   max_response_length: 2048
-  rollout_batch_size: 512  # equivalent to verl's data.train_batch_size
+  rollout_batch_size: 32  # equivalent to verl's data.train_batch_size
   mini_rollout_batch_size: null  # equivalent to verl's data.gen_batch_size
-  val_batch_size: 1024
+  val_batch_size: 32
   format_prompt: null
   override_chat_template: null
   shuffle: true
@@ -33,7 +33,7 @@ algorithm:
 
 worker:
   actor:
-    global_batch_size: 128  # equivalent to verl's actor.ppo_mini_batch_size
+    global_batch_size: 32  # equivalent to verl's actor.ppo_mini_batch_size
     micro_batch_size_per_device_for_update: 1  # equivalent to verl's actor.ppo_micro_batch_size_per_gpu
     micro_batch_size_per_device_for_experience: 2  # equivalent to verl's rollout.log_prob_micro_batch_size_per_gpu
     max_grad_norm: 1.0
@@ -41,15 +41,10 @@ worker:
     dynamic_batching: true
     ulysses_size: 1
     model:
-  model_path: /home/fangzibang/data_32T/fzb_data/ModelScope/Qwen3-4B-Base
+      model_path: /home/fangzibang/data_32T/fzb_data/ModelScope/Qwen3-4B-Base
       enable_gradient_checkpointing: true
       trust_remote_code: false
       freeze_vision_tower: false
-      lora:
-        rank: 0  # Set to a positive integer to enable LoRA
-        alpha: 64  # LoRA scaling factor
-        target_modules: all-linear  # all-linear or q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj
-        exclude_modules: .*visual.*  # Exclude modules from applying LoRA; example: '.*visual.*' for excluding the ViT in Qwen2.5-VL, as vLLM does not support ViT LoRA
     optim:
       lr: 1.0e-6
       weight_decay: 1.0e-2
@@ -59,19 +54,20 @@ worker:
       enable_full_shard: true
       enable_cpu_offload: false
       enable_rank0_init: true
+      torch_dtype: bf16     # Use bf16 for actor model to save GPU memory, which is usually acceptable for actor model since it can tolerate some noise in gradients.
     offload:
       offload_params: true  # true: more CPU memory; false: more GPU memory
       offload_optimizer: true  # true: more CPU memory; false: more GPU memory
 
   rollout:
-    n: 5
+    n: 2    # Number of rollouts per prompt. Set to 1 for no rollout.
     temperature: 1.0
     top_p: 1.0
     limit_images: 0
-    gpu_memory_utilization: 0.6
+    gpu_memory_utilization: 0.4   # Target GPU memory utilization for rollout. Set to 0 to disable dynamic batch size adjustment.
     enforce_eager: false
     enable_chunked_prefill: false
-    tensor_parallel_size: 2
+    tensor_parallel_size: 1     # Tensor parallel size for rollout. Set to 1 to disable tensor parallelism.
     disable_tqdm: false
     val_override_config:
       temperature: 0.6
@@ -83,6 +79,7 @@ worker:
       enable_full_shard: true
       enable_cpu_offload: true  # true: more CPU memory; false: more GPU memory
       enable_rank0_init: true
+      torch_dtype: bf16    # Use bf16 for ref model to save GPU memory, which is usually not a problem for ref model since it does not need to backpropagate gradients.
     offload:
       offload_params: false
 
@@ -92,11 +89,11 @@ worker:
 trainer:
   total_epochs: 15
   max_steps: null
-  project_name: easy_r1
-  experiment_name: qwen2_5_7b_math_grpo
+  project_name: SelfEvolvingPrivacyRL
+  experiment_name: privacy_grpo
   logger: ["file", "wandb"]
   nnodes: 1
-  n_gpus_per_node: 8
+  n_gpus_per_node: 1      # Number of GPUs per node for training. Set to 0 for CPU training.
   max_try_make_batch: 20  # -1 means no limit
   val_freq: 5  # -1 to disable
   val_before_train: true

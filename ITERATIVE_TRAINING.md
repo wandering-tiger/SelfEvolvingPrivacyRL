@@ -11,21 +11,28 @@ This project supports iterative training where each round regenerates the attack
 ## One-command iterative run
 
 ```bash
-bash /home/fangzibang/SelfEvolvingPrivacyRL/training/iterative_train_with_verl.sh
+bash /home/fangzibang/SelfEvolvingPrivacyRL/scripts/main.sh
+```
+
+### GPU assignment (attacker vs guard)
+
+```bash
+ATTACKER_GPU=0 GUARD_GPU=1 bash /home/fangzibang/SelfEvolvingPrivacyRL/scripts/main.sh
 ```
 
 ### Optional environment overrides
 
 ```bash
 ROUNDS=5 STEPS_PER_ROUND=100 SAMPLES_PER_ROUND=4000 \
-  bash /home/fangzibang/SelfEvolvingPrivacyRL/training/iterative_train_with_verl.sh
+  bash /home/fangzibang/SelfEvolvingPrivacyRL/scripts/main.sh
 ```
 
 ## Notes
 
 - The script uses `/home/fangzibang/SelfEvolvingPrivacyRL/build_dataset.py --model_path <checkpoint>`
-  to generate a new `train.parquet`/`val.parquet` each round.
-- The vLLM victim service is started once at the beginning and stopped after all rounds finish.
+  with `--rewrite_backend vllm` by default to generate updated attacker prompts.
+  to generate a new `train.json`/`val.json` each round.
+- The vLLM guard service is started once at the beginning and stopped after all rounds finish.
 - Checkpoints are written to:
   `/home/fangzibang/storage/models/privacy_attacker_iterative/round_<N>`
 

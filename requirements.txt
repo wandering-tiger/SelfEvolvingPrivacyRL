@@ -18,6 +18,7 @@ pylatexenc
 qwen-vl-utils
 ray[default]
 requests
+scikit-learn
 stopit
 tensordict
 torchdata
