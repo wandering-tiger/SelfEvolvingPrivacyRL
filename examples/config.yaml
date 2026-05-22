@@ -2,7 +2,7 @@ data:
   train_files: /home/fangzibang/SelfEvolvingPrivacyRL/data/train.json
   val_files: /home/fangzibang/SelfEvolvingPrivacyRL/data/val.json
   prompt_key: prompt
-  answer_key: target
+  answer_key: sensitive
   image_key: images
   video_key: videos
   image_dir: null
@@ -91,7 +91,7 @@ trainer:
   max_steps: null
   project_name: SelfEvolvingPrivacyRL
   experiment_name: privacy_grpo
-  logger: ["file", "wandb"]
+  logger: ["file"]    # ["wandb", "file"]
   nnodes: 1
   n_gpus_per_node: 1      # Number of GPUs per node for training. Set to 0 for CPU training.
   max_try_make_batch: 20  # -1 means no limit
