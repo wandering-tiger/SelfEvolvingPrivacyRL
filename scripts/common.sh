@@ -5,7 +5,7 @@ set -euo pipefail
 WORKSPACE=${WORKSPACE:-/home/fangzibang}
 PROJECT_DIR=${PROJECT_DIR:-$WORKSPACE/SelfEvolvingPrivacyRL}
 
-BASE_MODEL=${BASE_MODEL:-/home/fangzibang/data_32T/fzb_data/ModelScope/Qwen3-4B-Base}
+BASE_MODEL=${BASE_MODEL:-/home/fangzibang/data_32T/fzb_data/ModelScope/Qwen3-4B-Instruct-2507}
 GUARD_MODEL=${GUARD_MODEL:-$BASE_MODEL}
 ATTACKER_MODEL=${ATTACKER_MODEL:-$BASE_MODEL}
 

@@ -81,6 +81,8 @@ def _call_guard_model(
 
 
 def _call_helpfulness_judge(assistant_action: str) -> int:
+    if os.getenv("HELPFULNESS_JUDGE_USE_MOCK", "false").lower() in {"1", "true", "yes"}:
+        return 2
     # 默认直接用guard的vllm服务
     base_url = os.getenv("HELPFULNESS_JUDGE_URL") or os.getenv("GUARD_OPENAI_URL", "http://127.0.0.1:8000/v1/chat/completions")
     model_name = os.getenv("HELPFULNESS_JUDGE_MODEL") or os.getenv("GUARD_MODEL", "Qwen/Qwen3-4B-Base")
@@ -114,25 +116,24 @@ def _call_helpfulness_judge(assistant_action: str) -> int:
     return 0
 
 def compute_score(
-    predicts: List[str],
-    ground_truths: List[str],
+    reward_inputs: List[Dict[str, str]],
     **kwargs
 ) -> List[Dict[str, float]]:
 
     scorer = RewardInterface()
     results = []
 
-    # verl dataset extra field
     sensitives = kwargs.get("sensitive", [])
 
-    for idx, predict in enumerate(predicts):
+    for idx, reward_input in enumerate(reward_inputs):
 
-        attack_prompt = predict.strip()
+        attack_prompt = reward_input.get("response", "").strip()
+        ground_truth = reward_input.get("ground_truth", "")
 
         sensitive_item = (
-            sensitives[idx]
-            if idx < len(sensitives)
-            else ""
+            ground_truth
+            if ground_truth
+            else (sensitives[idx] if idx < len(sensitives) else "")
         )
 
         # mock mode

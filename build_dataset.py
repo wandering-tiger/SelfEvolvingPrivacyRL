@@ -207,12 +207,14 @@ def _generate_prompts_with_vllm(
     temperature: float,
     top_p: float,
     gpu_mem_util: float,
+    max_model_len: Optional[int],
 ) -> List[str]:
 
     llm = LLM(
         model=model_path,
         trust_remote_code=True,
         gpu_memory_utilization=gpu_mem_util,
+        max_model_len=max_model_len,
     )
 
     tokenizer = AutoTokenizer.from_pretrained(
@@ -291,6 +293,7 @@ def build_attack_dataset(
     device: Optional[str] = None,
     rewrite_backend: str = "transformers",
     vllm_gpu_mem_util: float = 0.8,
+    vllm_max_model_len: Optional[int] = 8192,
 ):
     os.makedirs(output_dir, exist_ok=True)
     
@@ -339,6 +342,7 @@ def build_attack_dataset(
                 temperature=temperature,
                 top_p=top_p,
                 gpu_mem_util=vllm_gpu_mem_util,
+                max_model_len=vllm_max_model_len,
             )
 
         else:
@@ -410,6 +414,7 @@ if __name__ == "__main__":
         default="transformers",
     )
     parser.add_argument("--vllm_gpu_mem_util", type=float, default=0.8)
+    parser.add_argument("--vllm_max_model_len", type=int, default=8192)
     args = parser.parse_args()
 
     build_attack_dataset(
@@ -423,4 +428,5 @@ if __name__ == "__main__":
         device=args.device,
         rewrite_backend=args.rewrite_backend,
         vllm_gpu_mem_util=args.vllm_gpu_mem_util,
+        vllm_max_model_len=args.vllm_max_model_len,
     )

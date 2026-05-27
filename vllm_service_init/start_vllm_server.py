@@ -33,6 +33,8 @@ parser.add_argument('--port', type=str, default='5000')
 parser.add_argument('--model_path', type=str, default='Qwen/Qwen3-4B-Base')
 parser.add_argument('--gpu_mem_util', type=float, default=0.8,
                     help='The maximum GPU memory utilization fraction for vLLM.')
+parser.add_argument('--max_model_len', type=int, default=8192,
+                    help='Override max sequence length for vLLM to fit KV cache.')
 args = parser.parse_args()
 
 # ------------------------- vLLM Initialization ------------------------ #
@@ -44,6 +46,7 @@ model = vllm.LLM(
     model=args.model_path,
     tokenizer=args.model_path,
     gpu_memory_utilization=args.gpu_mem_util,
+    max_model_len=args.max_model_len,
 )
 
 sample_params = vllm.SamplingParams(
@@ -106,6 +109,58 @@ def grade_answer_with_timeout(res1, res2):
 
 # ---------------------------- Flask Application --------------------------- #
 app = Flask(__name__)
+
+
+@app.route('/v1/chat/completions', methods=['POST'])
+def chat_completions():
+    """OpenAI-compatible chat completions endpoint."""
+    pause_event.set()
+    torch.cuda.synchronize()
+
+    try:
+        payload = request.get_json(force=True) or {}
+        messages = payload.get('messages', [])
+        temperature = float(payload.get('temperature', 1.0))
+        top_p = float(payload.get('top_p', 1.0))
+        max_tokens = int(payload.get('max_tokens', 256))
+
+        if tokenizer.chat_template:
+            prompt = tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+                add_special_tokens=True,
+            )
+        else:
+            prompt = "\n".join(
+                f"{m.get('role', 'user')}: {m.get('content', '')}" for m in messages
+            )
+
+        params = vllm.SamplingParams(
+            temperature=temperature,
+            top_p=top_p,
+            max_tokens=max_tokens,
+            stop_token_ids=[tokenizer.eos_token_id],
+        )
+
+        outputs = model.generate([prompt], sampling_params=params, use_tqdm=False)
+        text = ""
+        if outputs and outputs[0].outputs:
+            text = outputs[0].outputs[0].text
+
+        return jsonify({
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": text,
+                    }
+                }
+            ]
+        })
+    finally:
+        pause_event.clear()
+        torch.cuda.synchronize()
 
 @app.route('/hello', methods=['GET'])
 def hello():

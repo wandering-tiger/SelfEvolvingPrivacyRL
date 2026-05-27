@@ -37,7 +37,7 @@ class RewardInterface:
         )
 
         return {
-            "overall_reward": reward,
+            "overall": reward,
             "leaked": float(leaked),
             "helpfulness_score": float(helpfulness_score),
         }

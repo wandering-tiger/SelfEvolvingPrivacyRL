@@ -13,7 +13,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-BASE_MODEL=${BASE_MODEL:-/home/fangzibang/data_32T/fzb_data/ModelScope/Qwen3-4B-Base}
+BASE_MODEL=${BASE_MODEL:-/home/fangzibang/data_32T/fzb_data/ModelScope/Qwen3-4B-Instruct-2507}
 ATTACKER_MODEL=${ATTACKER_MODEL:-$BASE_MODEL}
 
 ATTACKER_GPU=${ATTACKER_GPU:-0}

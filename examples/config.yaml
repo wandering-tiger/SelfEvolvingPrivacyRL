@@ -41,7 +41,7 @@ worker:
     dynamic_batching: true
     ulysses_size: 1
     model:
-      model_path: /home/fangzibang/data_32T/fzb_data/ModelScope/Qwen3-4B-Base
+      model_path: /home/fangzibang/data_32T/fzb_data/ModelScope/Qwen3-4B-Instruct-2507
       enable_gradient_checkpointing: true
       trust_remote_code: false
       freeze_vision_tower: false
@@ -67,7 +67,7 @@ worker:
     gpu_memory_utilization: 0.4   # Target GPU memory utilization for rollout. Set to 0 to disable dynamic batch size adjustment.
     enforce_eager: false
     enable_chunked_prefill: false
-    tensor_parallel_size: 1     # Tensor parallel size for rollout. Set to 1 to disable tensor parallelism.
+    tensor_parallel_size: 2     # Tensor parallel size for rollout. Set to 1 to disable tensor parallelism.
     disable_tqdm: false
     val_override_config:
       temperature: 0.6
