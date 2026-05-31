@@ -13,7 +13,8 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
-SAVE_PREFIX="privacy_attacker_iterative"
+RUN_TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+SAVE_PREFIX="privacy_attacker_iterative_${RUN_TIMESTAMP}"
 ROUNDS=${ROUNDS:-3}
 STEPS_PER_ROUND=${STEPS_PER_ROUND:-50}
 SAMPLES_PER_ROUND=${SAMPLES_PER_ROUND:-500}

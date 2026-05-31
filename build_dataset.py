@@ -282,6 +282,7 @@ def _generate_prompts_with_vllm(
 
     return results
 
+
 def build_attack_dataset(
     num_samples: int = 1000,
     output_dir: str = "/home/fangzibang/SelfEvolvingPrivacyRL/data",
@@ -329,73 +330,40 @@ def build_attack_dataset(
         base_prompts.append(base_prompt)
         states.append(state)
 
-    generated_prompts = None
+    for idx, state in enumerate(states):
+        instruction = base_prompts[idx].strip()
 
-    if model_path:
+        train_data["prompt"].append(instruction)
+        train_data["target"].append(state.privacy_target)
+        train_data["sensitive"].append(_sample_sensitive_value(state.privacy_target))
+        train_data["strategy"].append(state.attack_strategy)
+        train_data["path"].append(state.attack_path)
 
-        if rewrite_backend == "vllm":
+    import json
+    from sklearn.model_selection import train_test_split
+    prompts = train_data["prompt"]
+    targets = train_data["target"]
+    sensitives = train_data["sensitive"]
+    train_prompts, val_prompts, train_targets, val_targets, train_sensitives, val_sensitives = train_test_split(
+        prompts, targets, sensitives, test_size=0.1, random_state=42)
 
-            generated_prompts = _generate_prompts_with_vllm(
-                prompts=base_prompts,
-                model_path=model_path,
-                max_new_tokens=max_new_tokens,
-                temperature=temperature,
-                top_p=top_p,
-                gpu_mem_util=vllm_gpu_mem_util,
-                max_model_len=vllm_max_model_len,
-            )
+    train_out = [
+        {"prompt": p, "target": t, "sensitive": s}
+        for p, t, s in zip(train_prompts, train_targets, train_sensitives)
+    ]
+    val_out = [
+        {"prompt": p, "target": t, "sensitive": s}
+        for p, t, s in zip(val_prompts, val_targets, val_sensitives)
+    ]
 
-        else:
-
-            resolved_device = _resolve_device(device)
-
-            generated_prompts = _generate_prompts(
-                prompts=base_prompts,
-                model_path=model_path,
-                device=resolved_device,
-                batch_size=batch_size,
-                max_new_tokens=max_new_tokens,
-                temperature=temperature,
-                top_p=top_p,
-            )
-
-        for idx, state in enumerate(states):
-            if generated_prompts:
-                instruction = generated_prompts[idx].strip()
-            else:
-                instruction = base_prompts[idx].strip()
-
-            train_data["prompt"].append(instruction)
-            train_data["target"].append(state.privacy_target)
-            train_data["sensitive"].append(_sample_sensitive_value(state.privacy_target))
-            train_data["strategy"].append(state.attack_strategy)
-            train_data["path"].append(state.attack_path)
-            
-        import json
-        from sklearn.model_selection import train_test_split
-        prompts = train_data["prompt"]
-        targets = train_data["target"]
-        sensitives = train_data["sensitive"]
-        train_prompts, val_prompts, train_targets, val_targets, train_sensitives, val_sensitives = train_test_split(
-            prompts, targets, sensitives, test_size=0.1, random_state=42)
-
-        train_out = [
-            {"prompt": p, "target": t, "sensitive": s}
-            for p, t, s in zip(train_prompts, train_targets, train_sensitives)
-        ]
-        val_out = [
-            {"prompt": p, "target": t, "sensitive": s}
-            for p, t, s in zip(val_prompts, val_targets, val_sensitives)
-        ]
-
-        train_path = os.path.join(output_dir, "train.json")
-        val_path = os.path.join(output_dir, "val.json")
-        with open(train_path, "w") as f:
-            json.dump(train_out, f, ensure_ascii=False, indent=2)
-        with open(val_path, "w") as f:
-            json.dump(val_out, f, ensure_ascii=False, indent=2)
-        print(f"Generated train samples at {train_path}")
-        print(f"Generated val samples at {val_path}")
+    train_path = os.path.join(output_dir, "train.json")
+    val_path = os.path.join(output_dir, "val.json")
+    with open(train_path, "w") as f:
+        json.dump(train_out, f, ensure_ascii=False, indent=2)
+    with open(val_path, "w") as f:
+        json.dump(val_out, f, ensure_ascii=False, indent=2)
+    print(f"Generated train samples at {train_path}")
+    print(f"Generated val samples at {val_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

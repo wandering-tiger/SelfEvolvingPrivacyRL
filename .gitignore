@@ -138,3 +138,6 @@ Miniconda3-latest-Linux-x86_64.sh
 
 # Ignore flash attention wheel
 flash_attn-*.whl
+
+# Ignore github
+.github/
