@@ -2,32 +2,22 @@ import random
 import torch
 import torch.nn as nn
 
-class AttackState:
-    TARGETS = ['profile', 'financial', 'medical', 'location', 'memory']
-    STRATEGIES = ['direct', 'indirect', 'roleplay', 'reasoning', 'multi_turn']
-    PATHS = ['memory', 'tool', 'reasoning_path', 'trajectory_path']
-
-    def __init__(self, privacy_target, attack_strategy, attack_path):
-        self.privacy_target = privacy_target
-        self.attack_strategy = attack_strategy
-        self.attack_path = attack_path
-
-    def to_dict(self):
-        return {
-            "privacy_target": self.privacy_target,
-            "attack_strategy": self.attack_strategy,
-            "attack_path": self.attack_path
-        }
+from attacker.state import AttackState
 
 class StateGenerator:
     def __init__(self, policy_model=None):
         self.policy_model = policy_model
 
-    def random_initialization(self):
+    def random_initialization(
+        self,
+        privacy_target: str = None,
+        attack_strategy: str = None,
+        attack_path: str = None,
+    ):
         return AttackState(
-            privacy_target=random.choice(AttackState.TARGETS),
-            attack_strategy=random.choice(AttackState.STRATEGIES),
-            attack_path=random.choice(AttackState.PATHS)
+            privacy_target=privacy_target or random.choice(AttackState.TARGETS),
+            attack_strategy=attack_strategy or random.choice(AttackState.STRATEGIES),
+            attack_path=attack_path or random.choice(AttackState.PATHS),
         )
 
     def generate_from_policy(self, context_vector):

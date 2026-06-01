@@ -4,7 +4,8 @@ import os
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from build_dataset import build_attack_dataset
+from attacker.dataset_builder import build_attack_dataset
+from attacker.state import AttackState
 
 
 def main() -> None:
@@ -23,6 +24,13 @@ def main() -> None:
     parser.add_argument("--device", type=str, default=None)
     parser.add_argument("--rewrite_backend", type=str, default="transformers")
     parser.add_argument("--vllm_gpu_mem_util", type=float, default=0.5)
+    parser.add_argument(
+        "--strategy",
+        type=str,
+        choices=AttackState.STRATEGIES,
+        default=None,
+        help="Generate dataset using a single attack strategy.",
+    )
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -38,6 +46,7 @@ def main() -> None:
         device=args.device,
         rewrite_backend=args.rewrite_backend,
         vllm_gpu_mem_util=args.vllm_gpu_mem_util,
+        attack_strategy=args.strategy,
     )
 
 

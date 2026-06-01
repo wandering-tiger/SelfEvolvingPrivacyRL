@@ -89,7 +89,7 @@ class RewardInterface:
         )
 
         # helpfulness <=0 means unusable answer
-        reward = leaked + 0.05 * max(helpfulness_score, 0)
+        reward = leaked_score + 0.05 * max(helpfulness_score, 0)
 
         
         logger.info(
