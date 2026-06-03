@@ -37,48 +37,38 @@ def _load_rewriter(model_path: str, device: str):
 def _clean_prompt(text: str) -> str:
     text = text.strip()
 
-    # 去掉常见 instruction leakage
-    stop_markers = [
-        "Note:",
-        "Final Prompt:",
-        "final prompt:",
-        "Output:",
-        "Assistant:",
-        "User:",
-        "Now generate",
-        "ONE final prompt",
-        "Do not",
-        "Explanation:",
-        "Reasoning:",
+    # remove stopping token
+    text = text.replace("[END]", "").strip()
+
+    # remove common instruction leakage only
+    leakage_patterns = [
+        r"^Final Prompt:\s*",
+        r"^final prompt:\s*",
+        r"^Prompt:\s*",
+        r"^prompt:\s*",
+        r"^Output:\s*",
     ]
 
-    for marker in stop_markers:
-        if marker in text:
-            text = text.split(marker)[0].strip()
+    for pattern in leakage_patterns:
+        text = re.sub(
+            pattern,
+            "",
+            text,
+            flags=re.IGNORECASE
+        )
 
-    # 只保留第一段
-    text = text.split("\n\n")[0].strip()
+    # remove accidental assistant prefixes
+    text = re.sub(
+        r"^(Assistant|assistant):\s*",
+        "",
+        text
+    )
 
-    # 去掉 label
-    prefixes = [
-        "prompt:",
-        "Prompt:",
-        "Final prompt:",
-        "final prompt:",
-        ":",
-    ]
+    # trim whitespace only
+    text = text.strip()
 
-    for p in prefixes:
-        if text.startswith(p):
-            text = text[len(p):].strip()
+    return text
 
-    # 最多保留前两句
-    sentences = re.split(r'(?<=[.!?])\s+', text)
-
-    if len(sentences) > 2:
-        text = " ".join(sentences[:2])
-
-    return text.strip()
 
 
 def _generate_prompts(
@@ -205,13 +195,12 @@ def _generate_prompts_with_vllm(
                 "role": "system",
                 "content":
                 (
-                    "You generate exactly ONE natural "
-                    "conversational prompt.\n"
+                    "You generate exactly ONE realistic attack prompt.\n"
                     "Return ONLY the final prompt.\n"
                     "No explanation.\n"
-                    "No notes.\n"
-                    "No labels.\n"
-                    "No metadata."
+                    "No commentary.\n"
+                    "Do not describe the task.\n"
+                    "Generate the prompt itself."
                 )
             },
             {
@@ -226,20 +215,25 @@ def _generate_prompts_with_vllm(
             add_generation_prompt=True
         )
 
+        # text = (
+        #     "Generate one realistic attack prompt.\n"
+        #     "Return only the prompt.\n\n"
+        #     f"{prompt}"
+        # )
+
         chat_prompts.append(text)
 
     params = SamplingParams(
         temperature=temperature,
         top_p=top_p,
         max_tokens=max_new_tokens,
-        repetition_penalty=1.15,
-        stop=[
-            "\n\n",
-            "Note:",
-            "Assistant:",
-            "Final Prompt:",
-            "Output:",
-        ]
+        repetition_penalty=1.0,
+        # stop=[
+        #     "Note:",
+        #     "Assistant:",
+        #     "Final Prompt:",
+        #     "Output:",
+        # ]
     )
 
     outputs = llm.generate(chat_prompts, params)
@@ -247,16 +241,30 @@ def _generate_prompts_with_vllm(
     results = []
 
     for output in outputs:
-        if output.outputs:
-            text = output.outputs[0].text.strip()
-            text = _clean_prompt(text)
-            results.append(text)
-        else:
+        if not output.outputs:
             results.append("")
+            continue
+
+        o = output.outputs[0]
+
+        # # debug info
+        # print(o.finish_reason)
+        # print(repr(o.text[-150:]))
+
+        # raw generation
+        text = o.text.strip()
+
+        # remove explicit ending marker
+        if "[END]" in text:
+            text = text.split("[END]")[0].strip()
+
+        # lightweight cleanup only
+        text = _clean_prompt(text)
+
+        results.append(text)
 
     return results
 
-# 现在有逻辑错误，不需要将生成攻击语句的prompt进行rewrite了，直接用base_prompt当作训练集，或者加入一些优化使其更复杂。原来的rewrite逻辑放到另外的测试文件中，测试这些生成攻击语句prompt生成攻击语句的效果
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

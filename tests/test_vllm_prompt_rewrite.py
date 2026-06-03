@@ -23,6 +23,42 @@ def _load_prompts(output_dir: str, limit: int) -> List[str]:
         prompts = prompts[:limit]
     return prompts
 
+def _save_rewrites(
+    output_dir: str,
+    strategy: str,
+    base_prompts: List[str],
+    rewritten_prompts: List[str],
+) -> str:
+    rewrite_dir = os.path.join(output_dir, "rewrite")
+    os.makedirs(rewrite_dir, exist_ok=True)
+
+    strategy_name = strategy or "all"
+
+    save_path = os.path.join(
+        rewrite_dir,
+        f"{strategy_name}_rewrite.json"
+    )
+
+    payload = [
+        {
+            "base_prompt": base,
+            "rewritten_prompt": rewrite,
+        }
+        for base, rewrite in zip(
+            base_prompts,
+            rewritten_prompts,
+        )
+    ]
+
+    with open(save_path, "w") as f:
+        json.dump(
+            payload,
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
+
+    return save_path
 
 
 def main() -> None:
@@ -34,7 +70,7 @@ def main() -> None:
         default="/home/fangzibang/SelfEvolvingPrivacyRL/data/template_test",
     )
     parser.add_argument("--model_path", type=str, default="/home/fangzibang/data_32T/fzb_data/ModelScope/Qwen3-4B-Instruct-2507")
-    parser.add_argument("--max_new_tokens", type=int, default=128)
+    parser.add_argument("--max_new_tokens", type=int, default=256)
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--top_p", type=float, default=0.95)
     parser.add_argument("--vllm_gpu_mem_util", type=float, default=0.5)
@@ -52,12 +88,7 @@ def main() -> None:
         default=5,
         help="Number of samples to print.",
     )
-    parser.add_argument(
-        "--save_json",
-        type=str,
-        default=None,
-        help="Optional path to save rewritten prompts as JSON.",
-    )
+
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -69,7 +100,7 @@ def main() -> None:
         attack_strategy=args.strategy,
     )
 
-    prompts = _load_prompts(args.output_dir, args.show)
+    prompts = _load_prompts(args.output_dir, limit=None)
 
     rewritten = _generate_prompts_with_vllm(
         prompts=prompts,
@@ -81,21 +112,21 @@ def main() -> None:
         max_model_len=args.vllm_max_model_len,
     )
 
-    for idx, (base, rewrite) in enumerate(zip(prompts, rewritten), start=1):
+    for idx, (base, rewrite) in enumerate(zip(prompts[:args.show], rewritten[:args.show]), start=1):
         print(f"\n=== Sample {idx} ===")
         print("BASE PROMPT:")
         print(base)
         print("\nREWRITTEN PROMPT:")
         print(rewrite)
 
-    if args.save_json:
-        payload = [
-            {"base_prompt": base, "rewritten_prompt": rewrite}
-            for base, rewrite in zip(prompts, rewritten)
-        ]
-        with open(args.save_json, "w") as f:
-            json.dump(payload, f, ensure_ascii=False, indent=2)
-        print(f"\nSaved results to {args.save_json}")
+    save_path = _save_rewrites(
+        output_dir=args.output_dir,
+        strategy=args.strategy,
+        base_prompts=prompts,
+        rewritten_prompts=rewritten,
+    )
+
+    print(f"\nSaved rewritten prompts to:\n{save_path}")
 
 
 if __name__ == "__main__":
