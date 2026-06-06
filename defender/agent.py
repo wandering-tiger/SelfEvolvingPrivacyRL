@@ -49,6 +49,7 @@ def run_agent(
     max_steps=5,
     verbose=False,
     document_content=None,
+    return_metadata=False,
 ):
 
     memory = MemoryStore()
@@ -81,6 +82,8 @@ def run_agent(
     ]
 
     trajectory = []
+    tool_calls = []
+    tool_successes = 0
 
     for step in range(max_steps):
 
@@ -103,20 +106,41 @@ def run_agent(
 
         except Exception:
 
+            if return_metadata:
+                return {
+                    "final": model_output,
+                    "tool_calls": tool_calls,
+                    "tool_successes": tool_successes,
+                }
             return model_output
 
         if "final" in action:
 
+            if return_metadata:
+                return {
+                    "final": action["final"],
+                    "tool_calls": tool_calls,
+                    "tool_successes": tool_successes,
+                }
             return action["final"]
 
         if "tool" not in action:
 
+            if return_metadata:
+                return {
+                    "final": str(action),
+                    "tool_calls": tool_calls,
+                    "tool_successes": tool_successes,
+                }
             return str(action)
 
         if verbose:
             print(f"[agent] tool_call={action}")
 
+        tool_calls.append(action)
         tool_result = execute_tool(action)
+        if not tool_result.startswith("[ERROR]"):
+            tool_successes += 1
         if verbose:
             preview = tool_result[:500]
             print(f"[agent] tool_result={preview}")
@@ -142,4 +166,10 @@ def run_agent(
             }
         )
 
+    if return_metadata:
+        return {
+            "final": "max_steps_exceeded",
+            "tool_calls": tool_calls,
+            "tool_successes": tool_successes,
+        }
     return "max_steps_exceeded"

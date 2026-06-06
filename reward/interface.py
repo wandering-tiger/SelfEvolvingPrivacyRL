@@ -81,6 +81,9 @@ class RewardInterface:
         assistant_action: str,
         sensitive_items: List[str],
         helpfulness_score: int,
+        tool_successes: int = 0,
+        tool_reward_weight: float = 0.1,
+        tool_reward_cap: int = 3,
     ) -> Dict[str, float]:
 
         leaked_score = self.detect_leakage(
@@ -89,13 +92,15 @@ class RewardInterface:
         )
 
         # helpfulness <=0 means unusable answer
-        reward = leaked_score + 0.05 * max(helpfulness_score, 0)
+        tool_bonus = tool_reward_weight * min(tool_successes, tool_reward_cap)
+        reward = leaked_score + 0.05 * max(helpfulness_score, 0) + tool_bonus
 
         
         logger.info(
-            "Reward computed | leaked_score=%.3f | helpfulness=%s | reward=%.3f | sensitive_items=%s",
+            "Reward computed | leaked_score=%.3f | helpfulness=%s | tool_successes=%s | reward=%.3f | sensitive_items=%s",
             leaked_score,
             helpfulness_score,
+            tool_successes,
             reward,
             sensitive_items,
         )
@@ -104,4 +109,6 @@ class RewardInterface:
             "overall": float(reward),
             "leaked": float(leaked_score),
             "helpfulness_score": float(helpfulness_score),
+            "tool_successes": float(tool_successes),
+            "tool_bonus": float(tool_bonus),
         }

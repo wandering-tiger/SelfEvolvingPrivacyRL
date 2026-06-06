@@ -100,17 +100,22 @@ def build_attack_dataset(
     prompts = train_data["prompt"]
     targets = train_data["target"]
     sensitives = train_data["sensitive"]
-    train_prompts, val_prompts, train_targets, val_targets, train_sensitives, val_sensitives = (
-        train_test_split(prompts, targets, sensitives, test_size=0.1, random_state=42)
+    strategies = train_data["strategy"]
+    (train_prompts, val_prompts,
+     train_targets, val_targets,
+     train_sensitives, val_sensitives,
+     train_strategies, val_strategies) = (
+        train_test_split(prompts, targets, sensitives, strategies,
+                         test_size=0.1, random_state=42)
     )
 
     train_out = [
-        {"prompt": p, "target": t, "sensitive": s}
-        for p, t, s in zip(train_prompts, train_targets, train_sensitives)
+        {"prompt": p, "target": t, "sensitive": s, "strategy": strat}
+        for p, t, s, strat in zip(train_prompts, train_targets, train_sensitives, train_strategies)
     ]
     val_out = [
-        {"prompt": p, "target": t, "sensitive": s}
-        for p, t, s in zip(val_prompts, val_targets, val_sensitives)
+        {"prompt": p, "target": t, "sensitive": s, "strategy": strat}
+        for p, t, s, strat in zip(val_prompts, val_targets, val_sensitives, val_strategies)
     ]
 
     train_path = os.path.join(output_dir, "train.json")
