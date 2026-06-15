@@ -18,6 +18,7 @@ class StateGenerator:
             privacy_target=privacy_target or random.choice(AttackState.TARGETS),
             attack_strategy=attack_strategy or random.choice(AttackState.STRATEGIES),
             attack_path=attack_path or random.choice(AttackState.PATHS),
+            task_type=random.choice(AttackState.TASK_TYPES),
         )
 
     def generate_from_policy(self, context_vector):
@@ -35,5 +36,6 @@ class StateGenerator:
         return AttackState(
             privacy_target=AttackState.TARGETS[target_idx],
             attack_strategy=AttackState.STRATEGIES[strategy_idx],
-            attack_path=AttackState.PATHS[path_idx]
+            attack_path=AttackState.PATHS[path_idx],
+            task_type=random.choice(AttackState.TASK_TYPES),
         )

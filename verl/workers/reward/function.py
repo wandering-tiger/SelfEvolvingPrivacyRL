@@ -62,6 +62,10 @@ class SequentialFunctionRewardManagerMixin:
                     "response": response_str,
                     "response_length": cur_response_length,
                     "ground_truth": data.non_tensor_batch["ground_truth"][i],
+                    "strategy": data.non_tensor_batch.get("strategy", [""] * len(data))[i],
+                    "task_type": data.non_tensor_batch.get("task_type", [""] * len(data))[i],
+                    "task_file": data.non_tensor_batch.get("task_file", [""] * len(data))[i],
+                    "email": data.non_tensor_batch.get("email", [""] * len(data))[i],
                 }
             )
             reward_tensor[i, cur_response_length - 1] = score["overall"]
@@ -89,6 +93,10 @@ class BatchFunctionRewardManagerMixin:
                     "response": response_str,
                     "response_length": cur_response_length,
                     "ground_truth": data.non_tensor_batch["ground_truth"][i],
+                    "strategy": data.non_tensor_batch.get("strategy", [""] * len(data))[i],
+                    "task_type": data.non_tensor_batch.get("task_type", [""] * len(data))[i],
+                    "task_file": data.non_tensor_batch.get("task_file", [""] * len(data))[i],
+                    "email": data.non_tensor_batch.get("email", [""] * len(data))[i],
                 }
             )
 

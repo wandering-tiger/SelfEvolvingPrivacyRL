@@ -25,7 +25,7 @@ def call_guard_llm(messages):
         "messages": messages,
         "temperature": 0.7,
         "top_p": 0.95,
-        "max_tokens": 256,
+        "max_tokens": 512,
     }
 
     response = _SESSION.post(

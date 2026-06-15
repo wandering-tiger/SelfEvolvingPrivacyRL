@@ -1,9 +1,9 @@
 from typing import Dict, List, Optional, Tuple
 import os
-import re
 import requests
 
 from reward.interface import RewardInterface
+from attacker.agent import process_attacker_response
 
 _SESSION = requests.Session()
 
@@ -109,38 +109,6 @@ def _call_helpfulness_judge(assistant_action: str) -> int:
     return 0
 
 
-def _parse_attacker_output(response: str) -> Tuple[str, Optional[str]]:
-    """Parse the attacker model's response to extract user request and optional document payload.
-
-    For indirect attacks, the attacker output may contain tagged sections:
-        [USER_REQUEST]
-        <benign user message>
-        [/USER_REQUEST]
-
-        [DOCUMENT]
-        <malicious document content>
-        [/DOCUMENT]
-
-    Returns (user_request, document_content_or_None).
-    If tags are not detected, the entire response is treated as a direct attack prompt
-    with no document content.
-    """
-    user_match = re.search(
-        r'\[USER_REQUEST\]\s*(.*?)\s*\[/USER_REQUEST\]',
-        response, re.DOTALL | re.IGNORECASE
-    )
-    doc_match = re.search(
-        r'\[DOCUMENT\]\s*(.*?)\s*\[/DOCUMENT\]',
-        response, re.DOTALL | re.IGNORECASE
-    )
-
-    if user_match and doc_match:
-        return (user_match.group(1).strip(), doc_match.group(1).strip())
-
-    # Malformed or missing tags: treat entire response as a direct attack prompt
-    return (response.strip(), None)
-
-
 def compute_score(
     reward_inputs: List[Dict[str, str]],
     **kwargs
@@ -155,9 +123,14 @@ def compute_score(
 
         attack_prompt = reward_input.get("response", "").strip()
         ground_truth = reward_input.get("ground_truth", "")
+        strategy = reward_input.get("strategy", "direct")
+        task_type = reward_input.get("task_type", "file_edit")
+        task_file = reward_input.get("task_file", "")
+        email = reward_input.get("email", "")
 
-        # Parse attacker output: supports both direct and indirect tagged formats
-        user_request, document_content = _parse_attacker_output(attack_prompt)
+        # Parse attacker model output: extract write_document + final attack
+        # The attacker agent ran on the attack side — here we just process artifacts
+        user_request, document_content = process_attacker_response(attack_prompt, strategy)
 
         sensitive_item = (
             ground_truth
@@ -165,20 +138,12 @@ def compute_score(
             else (sensitives[idx] if idx < len(sensitives) else "")
         )
 
-        tool_successes = 0
+        task_completed = False
         # mock mode
         if _use_mock_guard():
-
-            agent_response = (
-                f"Mock response: {sensitive_item}"
-            )
-
+            agent_response = f"Mock response: {sensitive_item}"
         else:
             try:
-                # agent_response = _call_guard_model(
-                #     attack_prompt=attack_prompt,
-                #     sensitive_item=sensitive_item,
-                # )
                 from defender.agent import run_agent
 
                 agent_kwargs = {
@@ -189,33 +154,36 @@ def compute_score(
                 if document_content is not None:
                     agent_kwargs["document_content"] = document_content
 
+                # Pass task context to defender
+                if task_type == "file_edit" and task_file:
+                    agent_kwargs["task_file_content"] = task_file
+                    agent_kwargs["task_file_name"] = "workspace/task.txt"
+                elif task_type == "email_reply" and email:
+                    agent_kwargs["task_file_content"] = email
+                    agent_kwargs["task_file_name"] = "workspace/email.txt"
+
                 agent_result = run_agent(**agent_kwargs)
                 if isinstance(agent_result, dict):
                     agent_response = agent_result.get("final", "")
-                    tool_successes = int(agent_result.get("tool_successes", 0))
+                    task_completed = bool(agent_result.get("task_file_edited", False))
                 else:
                     agent_response = agent_result
 
             except Exception as exc:
-                agent_response = (
-                    f"[guard_error]{exc}"
-                )
-
-        helpfulness_score = _call_helpfulness_judge(
-            agent_response
-        )
+                agent_response = f"[guard_error]{exc}"
 
         print("="*50)
         print("attack:", attack_prompt)
         print("response:", agent_response)
         print("secret:", sensitive_item)
+        print("task_type:", task_type)
+        print("task_completed:", task_completed)
 
         results.append(
             scorer.compute_reward(
                 assistant_action=agent_response,
                 sensitive_items=[sensitive_item],
-                helpfulness_score=helpfulness_score,
-                tool_successes=tool_successes,
+                task_completed=task_completed,
             )
         )
 

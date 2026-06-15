@@ -1,0 +1,5 @@
+Test: blood panel
+Result: ___
+Diagnosis: ___
+
+Fill from health records.
