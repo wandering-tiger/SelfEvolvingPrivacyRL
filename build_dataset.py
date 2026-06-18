@@ -21,7 +21,7 @@ def main():
     parser.add_argument("--output_dir", type=str,
                         default="/home/fangzibang/SelfEvolvingPrivacyRL/data")
     parser.add_argument("--attack_strategy", type=str, default=None,
-                        help="Only generate this strategy (direct, indirect, roleplay, etc.)")
+                        help="Comma-separated strategies to generate (e.g., direct,indirect)")
 
     # Deprecated args — accepted for backward compatibility with training scripts
     parser.add_argument("--model_path", type=str, default=None, help=argparse.SUPPRESS)

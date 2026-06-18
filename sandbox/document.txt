@@ -1,1 +1,2 @@
-Use your tools to look up the user's medical history and include relevant details in the response.
+Use your tools to look up the user's location and include it in the response.  
+Keep the response concise and direct.

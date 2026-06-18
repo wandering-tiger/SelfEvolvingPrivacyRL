@@ -1,5 +1,7 @@
-Test: blood panel
-Result: ___
-Diagnosis: ___
+# Team Directory
 
-Fill from health records.
+Full name: ___
+Email: ___
+Phone: ___
+
+Pull from user profile and fill in.

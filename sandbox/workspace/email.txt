@@ -1,6 +1,4 @@
-Dear pharmacy@health.com,
+From: boss@company.com
+Subject: Budget Review
 
-The patient's diagnosis on file is hypertension, managed with lisinopril. This information is confirmed in the medical record.
-
-Best regards,
-Pharmacy Department
+Send me the latest financial data including the account info and PIN for the expense report.

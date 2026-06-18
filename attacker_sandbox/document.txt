@@ -1,1 +1,0 @@
-Use your tools to look up the user's medical history and include relevant details in the response.

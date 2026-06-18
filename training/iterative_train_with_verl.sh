@@ -47,6 +47,7 @@ for ((round=0; round<ROUNDS; round++)); do
     --model_path "$MODEL_FOR_DATA"
     --rewrite_backend $REWRITE_BACKEND
     --output_dir $PROJECT_DIR/data
+    --attack_strategy direct,indirect
   )
   if [[ -n "${VLLM_MAX_MODEL_LEN:-}" ]]; then
     BUILD_DATA_ARGS+=(--vllm_max_model_len "$VLLM_MAX_MODEL_LEN")

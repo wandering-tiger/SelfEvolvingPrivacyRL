@@ -150,6 +150,7 @@ def compute_score(
                     "attack_prompt": user_request,
                     "sensitive_item": sensitive_item,
                     "return_metadata": True,
+                    "max_steps": 5,
                 }
                 if document_content is not None:
                     agent_kwargs["document_content"] = document_content

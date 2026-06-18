@@ -61,8 +61,8 @@ worker:
 
   rollout:
     n: 2    # Number of rollouts per prompt. Set to 1 for no rollout.
-    temperature: 0.6
-    top_p: 0.9
+    temperature: 0.7
+    top_p: 0.95
     limit_images: 0
     gpu_memory_utilization: 0.4   # Target GPU memory utilization for rollout. Set to 0 to disable dynamic batch size adjustment.
     enforce_eager: false
@@ -70,7 +70,7 @@ worker:
     tensor_parallel_size: 2     # Tensor parallel size for rollout. Set to 1 to disable tensor parallelism.
     disable_tqdm: false
     val_override_config:
-      temperature: 0.6
+      temperature: 0.7
       top_p: 0.95
       n: 1
 

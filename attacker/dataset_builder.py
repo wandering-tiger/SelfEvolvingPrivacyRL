@@ -128,11 +128,15 @@ def build_attack_dataset(
 ):
     os.makedirs(output_dir, exist_ok=True)
 
-    if attack_strategy and attack_strategy not in AttackState.STRATEGIES:
-        raise ValueError(
-            f"Unknown attack strategy '{attack_strategy}'. "
-            f"Choose from: {', '.join(AttackState.STRATEGIES)}"
-        )
+    # Parse comma-separated strategies
+    allowed_strategies = None
+    if attack_strategy:
+        allowed_strategies = set(s.strip() for s in attack_strategy.split(","))
+        for s in allowed_strategies:
+            if s not in AttackState.STRATEGIES:
+                raise ValueError(
+                    f"Unknown strategy '{s}'. Choose from: {', '.join(AttackState.STRATEGIES)}"
+                )
 
     generator = StateGenerator()
 
@@ -143,9 +147,8 @@ def build_attack_dataset(
     }
 
     for _ in range(num_samples):
-        state = generator.random_initialization(
-            attack_strategy=attack_strategy
-        )
+        strat = random.choice(list(allowed_strategies)) if allowed_strategies else None
+        state = generator.random_initialization(attack_strategy=strat)
 
         strategy = state.attack_strategy
         task_type = state.task_type
