@@ -195,6 +195,21 @@ def build_attack_dataset(
     train_out = _build_records(train_idx)
     val_out = _build_records(val_idx)
 
+    # Oversample: inject extra copies of seed patterns discovered from testing.
+    # Controlled by --seed_file and --seed_limit (default 5 patterns).
+    seed_file = os.path.join(output_dir, "seed_patterns.json")
+    if os.path.exists(seed_file) and not os.environ.get("SKIP_SEED"):
+        with open(seed_file) as f:
+            seed_patterns = json.load(f)
+        seed_limit = int(os.environ.get("SEED_LIMIT", "5"))
+        seed_patterns = seed_patterns[:seed_limit]  # cap at ~5
+        for sp in seed_patterns:
+            key = (sp["strategy"], sp["target"], sp["task_type"])
+            for rec in train_out:
+                if (rec["strategy"], rec["target"], rec["task_type"]) == key:
+                    train_out.append(dict(rec))
+                    break
+
     train_path = os.path.join(output_dir, "train.json")
     val_path = os.path.join(output_dir, "val.json")
     with open(train_path, "w") as f:

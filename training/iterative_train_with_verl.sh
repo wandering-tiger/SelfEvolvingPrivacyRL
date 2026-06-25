@@ -37,10 +37,26 @@ for ((round=0; round<ROUNDS; round++)); do
     MODEL_FOR_DATA="$BASE_MODEL"
     LOAD_CKPT=""
   else
-    MODEL_FOR_DATA="$WORKSPACE/data_32T/fzb_data/storage/models/$SAVE_PREFIX/round_$((round-1))"
-    LOAD_CKPT="$MODEL_FOR_DATA"
+    PREV_ROUND_DIR="$WORKSPACE/data_32T/fzb_data/storage/models/$SAVE_PREFIX/round_$((round-1))"
+    MODEL_FOR_DATA="$PREV_ROUND_DIR"
+    # Load the latest (most trained) checkpoint from the previous round.
+    # We don't trust the buggy checkpoint_tracker.json (which may attribute
+    # the val_before_train score to the first saved checkpoint step).
+    # With cumulative max_steps, the latest checkpoint always has training
+    # budget remaining for the current round.
+    LOAD_CKPT=$(ls -d "$PREV_ROUND_DIR"/global_step_* 2>/dev/null | sort -t_ -k3 -n | tail -1)
+    if [[ -z "$LOAD_CKPT" ]]; then
+      echo "[WARN] No global_step_* found in $PREV_ROUND_DIR, starting fresh"
+      LOAD_CKPT=""
+    else
+      echo "[INFO] Loading latest checkpoint from previous round: $LOAD_CKPT"
+    fi
   fi
 
+  # Only use seed oversampling in first 2 rounds
+  if [[ $round -ge 2 ]]; then
+    export SKIP_SEED=1
+  fi
   echo "Generating fresh dataset from model: $MODEL_FOR_DATA"
   BUILD_DATA_ARGS=(
     --num_samples $SAMPLES_PER_ROUND
@@ -58,6 +74,10 @@ for ((round=0; round<ROUNDS; round++)); do
 
   SAVE_PATH="$WORKSPACE/data_32T/fzb_data/storage/models/$SAVE_PREFIX/round_${round}"
 
+  # Cumulative max_steps: round R has (R+1)*STEPS_PER_ROUND total steps so each round
+  # adds STEPS_PER_ROUND new training steps regardless of the loaded checkpoint step.
+  CUMULATIVE_MAX_STEPS=$(( (round + 1) * STEPS_PER_ROUND ))
+
   TRAIN_ARGS=(
   config=$PROJECT_DIR/examples/config.yaml
     algorithm.adv_estimator=grpo
@@ -66,12 +86,12 @@ for ((round=0; round<ROUNDS; round++)); do
     trainer.experiment_name=${SAVE_PREFIX}_round_${round}
     trainer.save_checkpoint_path=$SAVE_PATH
     trainer.total_epochs=1
-    trainer.max_steps=$STEPS_PER_ROUND
+    trainer.max_steps=$CUMULATIVE_MAX_STEPS
     worker.reward.reward_function=$PROJECT_DIR/reward/verl_reward_wrapper.py:compute_score
     trainer.val_freq=-1
     trainer.n_gpus_per_node=$NUM_GPUS
     worker.rollout.n=4
-    worker.actor.global_batch_size=4
+    worker.actor.global_batch_size=32
     worker.actor.micro_batch_size_per_device_for_update=1
     worker.actor.micro_batch_size_per_device_for_experience=1
   )
