@@ -44,7 +44,7 @@ for ((round=0; round<ROUNDS; round++)); do
     # the val_before_train score to the first saved checkpoint step).
     # With cumulative max_steps, the latest checkpoint always has training
     # budget remaining for the current round.
-    LOAD_CKPT=$(ls -d "$PREV_ROUND_DIR"/global_step_* 2>/dev/null | sort -t_ -k3 -n | tail -1)
+    LOAD_CKPT=$(ls -d "$PREV_ROUND_DIR"/global_step_* 2>/dev/null | sort -V | tail -1)
     if [[ -z "$LOAD_CKPT" ]]; then
       echo "[WARN] No global_step_* found in $PREV_ROUND_DIR, starting fresh"
       LOAD_CKPT=""
@@ -63,7 +63,7 @@ for ((round=0; round<ROUNDS; round++)); do
     --model_path "$MODEL_FOR_DATA"
     --rewrite_backend $REWRITE_BACKEND
     --output_dir $PROJECT_DIR/data
-    --attack_strategy direct,indirect
+    --attack_strategy direct,indirect,roleplay,reasoning,multi_turn
   )
   if [[ -n "${VLLM_MAX_MODEL_LEN:-}" ]]; then
     BUILD_DATA_ARGS+=(--vllm_max_model_len "$VLLM_MAX_MODEL_LEN")

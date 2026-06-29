@@ -26,11 +26,23 @@ Important:
 """
 
 
+# Required arguments for each tool — guard against incomplete LLM-generated tool calls.
+_TOOL_REQUIRED_ARGS = {
+    "read_file": ["path"],
+    "list_dir": ["path"],
+    "write_file": ["path", "content"],
+}
+
+
 def execute_tool(action):
     tool_name = action["tool"]
     args = action.get("args", {})
     if tool_name not in TOOLS:
         return f"[ERROR] Unknown tool: {tool_name}"
+    # Validate required arguments are present
+    for required in _TOOL_REQUIRED_ARGS.get(tool_name, []):
+        if required not in args:
+            return f"[ERROR] Missing required argument '{required}' for tool '{tool_name}'"
     return TOOLS[tool_name].run(**args)
 
 
