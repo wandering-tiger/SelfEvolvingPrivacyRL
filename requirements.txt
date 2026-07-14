@@ -25,3 +25,28 @@ torchdata
 transformers>=4.54.0,<5.0.0
 vllm>=0.8.0
 wandb
+
+# ------------------------------------------------------------------
+# AgentDAM defender (browser agent mode)
+# ------------------------------------------------------------------
+playwright==1.37.0
+beartype==0.12.0
+gymnasium==0.29.1
+aiolimiter==1.2.1
+scikit-image==0.22.0
+nltk==3.8.1
+
+
+# ------------------------------------------------------------------
+# PrivacyLens sandbox (ToolEmu three-model simulation)
+# ------------------------------------------------------------------
+tiktoken
+openai 
+langchain==0.0.277        # ToolEmu's LangChain agent framework
+python-dotenv==1.0.0      # .env file loading (PrivacyLens & our config)
+scipy                     # PrivacyLens dependency
+fire                      # PrivacyLens CLI dependency
+rouge_score               # PrivacyLens dependency
+# procoder                # NOT on PyPI — install manually:
+# install git+https://github.com/dhh1995/PromptCoder.git#egg=procoder
+

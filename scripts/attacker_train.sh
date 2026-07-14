@@ -30,6 +30,11 @@ export BASE_MODEL
 export ATTACKER_MODEL
 export GUARD_MODEL
 
+# PrivacyLens sandbox external paths (needed when PL_STYLE_RATIO > 0)
+export PRIVACYLENS_HOME=${PRIVACYLENS_HOME:-/home/fangzibang/PrivacyLens}
+export PROCODER_HOME=${PROCODER_HOME:-/home/fangzibang/PromptCoder}
+export PL_STYLE_RATIO=${PL_STYLE_RATIO:-0.0}
+
 export REWRITE_BACKEND=${REWRITE_BACKEND:-vllm}
 
 
@@ -42,6 +47,7 @@ bash "$PROJECT_DIR/vllm_service_init/start.sh" "$GUARD_MODEL" "$RUN_ID" "$GUARD_
 sleep 45
 
 echo "[TRAIN][ATTACKER] model=$MODEL_PATH gpu=$GPU_ID run_id=$RUN_ID"
+echo "[TRAIN][CONFIG] PL_STYLE_RATIO=$PL_STYLE_RATIO PRIVACYLENS_HOME=$PRIVACYLENS_HOME"
 
 BASE_MODEL="$MODEL_PATH" \
 GUARD_MODEL="$GUARD_MODEL" \

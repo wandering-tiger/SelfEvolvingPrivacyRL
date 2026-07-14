@@ -14,6 +14,18 @@ GUARD_GPU=${GUARD_GPU:-2}
 GUARD_PORT=${GUARD_PORT:-5000}
 ATTACKER_VLLM_PORT=${ATTACKER_VLLM_PORT:-5001}
 
+# PrivacyLens sandbox external paths (needed at runtime by reward wrapper)
+export PRIVACYLENS_HOME=${PRIVACYLENS_HOME:-/home/fangzibang/PrivacyLens}
+export PROCODER_HOME=${PROCODER_HOME:-/home/fangzibang/PromptCoder}
+
+# Guard vLLM config — PrivacyLens procoder prompts need lots of context.
+# Keep GPU memory util LOW so the 4B model + 8K KV cache fits in 40GB.
+export VLLM_GPU_MEM_UTIL=${VLLM_GPU_MEM_UTIL:-0.35}
+export VLLM_MAX_MODEL_LEN=${VLLM_MAX_MODEL_LEN:-8192}
+
+# PrivacyLens style data ratio (0.0 = all standard, 1.0 = all PL-style)
+PL_STYLE_RATIO=${PL_STYLE_RATIO:-0.0}
+
 function start_guard_service() {
   local model_path=$1
   local run_id=${2:-mock_run}

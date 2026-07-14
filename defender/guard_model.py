@@ -1,10 +1,20 @@
+import json
 import os
 import requests
 
 _SESSION = requests.Session()
 
 
+def _use_mock() -> bool:
+    return os.getenv("GUARD_USE_MOCK", "false").lower() in {"1", "true", "yes"}
+
+
 def call_guard_llm(messages):
+    """Call the guard LLM endpoint (or return a mock response for testing)."""
+    if _use_mock():
+        return json.dumps({
+            "final": "Mock response: task completed. No sensitive data shared."
+        })
 
     base_url = os.getenv(
         "GUARD_OPENAI_URL",

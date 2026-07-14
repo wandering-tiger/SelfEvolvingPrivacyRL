@@ -243,6 +243,10 @@ def process_attacker_response(
         # ── Format 3: Plain text — treat as direct attack prompt ──
         return response.strip(), None
 
+    # json.loads may return a string/list instead of dict — treat as plain text
+    if not isinstance(action, dict):
+        return response.strip(), None
+
     # Handle combined JSON: {"write_document": "...", "final": "..."}
     if "write_document" in action and "final" in action:
         content = action["write_document"]

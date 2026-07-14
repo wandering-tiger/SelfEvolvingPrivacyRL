@@ -19,6 +19,7 @@ ROUNDS=${ROUNDS:-3}
 STEPS_PER_ROUND=${STEPS_PER_ROUND:-50}
 SAMPLES_PER_ROUND=${SAMPLES_PER_ROUND:-500}
 REWRITE_BACKEND=${REWRITE_BACKEND:-vllm}
+PL_STYLE_RATIO=${PL_STYLE_RATIO:-0.0}
 
 ATTACKER_GPU=${ATTACKER_GPU:-0}
 IFS=',' read -ra ATTACKER_GPU_LIST <<< "$ATTACKER_GPU"
@@ -63,7 +64,8 @@ for ((round=0; round<ROUNDS; round++)); do
     --model_path "$MODEL_FOR_DATA"
     --rewrite_backend $REWRITE_BACKEND
     --output_dir $PROJECT_DIR/data
-    --attack_strategy direct,indirect,roleplay,reasoning,multi_turn
+    --attack_strategy direct,indirect,roleplay,reasoning,multi_turn \
+  --pl_style_ratio $PL_STYLE_RATIO
   )
   if [[ -n "${VLLM_MAX_MODEL_LEN:-}" ]]; then
     BUILD_DATA_ARGS+=(--vllm_max_model_len "$VLLM_MAX_MODEL_LEN")
