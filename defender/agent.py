@@ -286,3 +286,108 @@ def run_pl_agent(
         }
 
     return result.get("final_action", "")
+
+
+# ---------------------------------------------------------------------------
+# Simplified PrivacyLens-mode agent  (short prompts, no procoder)
+# ---------------------------------------------------------------------------
+
+def run_pl_agent_simple(
+    user_instruction: str,
+    user_name: str = "John Doe",
+    user_email: str = "john.doe@gmail.com",
+    privacy_sensitive_context: str = "",
+    toolkits: Optional[List[str]] = None,
+    final_action_type: str = "GmailSendEmail",
+    sensitive_info_items: Optional[List[str]] = None,
+    max_steps: int = 6,
+    verbose: bool = False,
+    return_metadata: bool = False,
+) -> Any:
+    """Run the defender agent using the **simplified** PrivacyLens sandbox.
+
+    Compared to ``run_pl_agent()`` (which uses the full procoder-based sandbox),
+    this version uses:
+    - A short (~60-word) JSON-format system prompt
+    - Two-phase flow: ReAct tool-calling → separate final-action generation
+    - No Critiquer / refine step
+    - No procoder dependency
+
+    The API is identical to ``run_pl_agent()`` — use it as a drop-in replacement
+    when you want faster execution during training.
+
+    Args:
+        user_instruction: The user's task (e.g. "Send an email to Susan...").
+        user_name: Display name of the user.
+        user_email: Email of the user.
+        privacy_sensitive_context: Context string in PrivacyLens format.
+        toolkits: List of allowed service names.
+        final_action_type: Expected final action (e.g. "GmailSendEmail").
+        sensitive_info_items: Sensitive items for downstream leakage detection.
+        max_steps: Max ReAct loop iterations (default 6).
+        verbose: Print debug info.
+        return_metadata: If True, return a dict with trajectory details.
+
+    Returns:
+        If *return_metadata*: dict with keys ``final``, ``tool_calls``,
+        ``pl_format_trajectory``, ``trajectory``, ``tool_successes``,
+        ``sensitive_info_items``.
+        Otherwise: the final output string.
+    """
+    from defender.privacylens.sandbox_simple import (
+        SimplePLSandbox,
+        SimplePLSandboxConfig,
+    )
+
+    if toolkits is None:
+        toolkits = ["Gmail", "NotionManager", "Messenger", "Slack",
+                    "GoogleCalendar", "FacebookManager"]
+
+    config = SimplePLSandboxConfig(
+        max_iterations=max_steps,
+        agent_temperature=0.0,
+        simulator_temperature=0.0,
+    )
+
+    sandbox = SimplePLSandbox(config)
+    result = sandbox.run(
+        user_name=user_name,
+        user_email=user_email,
+        user_instruction=user_instruction,
+        privacy_sensitive_context=privacy_sensitive_context,
+        toolkits=toolkits,
+        sensitive_info_items=sensitive_info_items or [],
+        final_action_type=final_action_type,
+    )
+
+    if verbose:
+        print(f"[pl_agent_simple] trajectory:\n{result['trajectory'][:500]}")
+        print(f"[pl_agent_simple] final_action: {result['final_action'][:300]}")
+        if result.get("error"):
+            print(f"[pl_agent_simple] ERROR: {result['error']}")
+
+    # Extract tool_calls from trajectory steps
+    tool_calls: List[Dict[str, Any]] = []
+    for step_text in result.get("trajectory_steps", []):
+        lines = step_text.split("\n")
+        if len(lines) >= 2:
+            action_name = lines[0].replace("Action: ", "").strip()
+            input_str = lines[1].replace("Action Input: ", "").strip()
+            try:
+                action_input = json.loads(input_str)
+            except (json.JSONDecodeError, ValueError):
+                action_input = {"_raw": input_str}
+            tool_calls.append({"tool": action_name, "args": action_input})
+
+    if return_metadata:
+        return {
+            "final": result.get("final_action", ""),
+            "tool_calls": tool_calls,
+            "tool_successes": len(tool_calls),
+            "trajectory": result.get("trajectory_steps", []),
+            "pl_format_trajectory": result.get("trajectory", ""),
+            "sensitive_info_items": sensitive_info_items or [],
+            "error": result.get("error"),
+        }
+
+    return result.get("final_action", "")

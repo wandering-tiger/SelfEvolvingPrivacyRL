@@ -1,0 +1,109 @@
+data:
+  train_files: /home/fangzibang/SelfEvolvingPrivacyRL/data/privacypeek_attacker/train.json
+  val_files: /home/fangzibang/SelfEvolvingPrivacyRL/data/privacypeek_attacker/val.json
+  prompt_key: prompt
+  answer_key: case_dir
+  image_key: images
+  video_key: videos
+  image_dir: null
+  video_fps: 2.0
+  max_prompt_length: 1024
+  max_response_length: 256
+  rollout_batch_size: 8
+  mini_rollout_batch_size: null
+  val_batch_size: 4
+  format_prompt: null
+  override_chat_template: null
+  shuffle: true
+  seed: 1
+  min_pixels: 262144
+  max_pixels: 4194304
+  filter_overlong_prompts: false
+
+algorithm:
+  adv_estimator: grpo
+  disable_kl: true
+  use_kl_loss: false
+  kl_penalty: low_var_kl
+  kl_coef: 1.0e-2
+  online_filtering: false
+  filter_key: overall
+  filter_low: 0.01
+  filter_high: 0.99
+
+worker:
+  actor:
+    global_batch_size: 8
+    micro_batch_size_per_device_for_update: 1
+    micro_batch_size_per_device_for_experience: 1
+    max_grad_norm: 1.0
+    padding_free: true
+    dynamic_batching: true
+    ulysses_size: 1
+    model:
+      model_path: /home/fangzibang/data_32T/fzb_data/ModelScope/Qwen3-4B-Instruct-2507
+      enable_gradient_checkpointing: true
+      trust_remote_code: false
+      freeze_vision_tower: false
+    optim:
+      lr: 1.0e-6
+      weight_decay: 1.0e-2
+      strategy: adamw
+      lr_warmup_ratio: 0.0
+    fsdp:
+      enable_full_shard: true
+      enable_cpu_offload: false
+      enable_rank0_init: true
+      torch_dtype: bf16
+    offload:
+      offload_params: true
+      offload_optimizer: true
+
+  rollout:
+    n: 2
+    temperature: 0.7
+    top_p: 0.95
+    limit_images: 0
+    gpu_memory_utilization: 0.45
+    enforce_eager: true
+    enable_chunked_prefill: false
+    tensor_parallel_size: 4
+    max_model_len: 1280
+    max_num_batched_tokens: 2048
+    disable_tqdm: false
+    val_override_config:
+      temperature: 0.7
+      top_p: 0.95
+      n: 1
+
+  ref:
+    fsdp:
+      enable_full_shard: true
+      enable_cpu_offload: true
+      enable_rank0_init: true
+      torch_dtype: bf16
+    offload:
+      offload_params: true
+
+  reward:
+    reward_function: ./reward/privacypeek_attacker_reward_wrapper.py:compute_score
+
+trainer:
+  total_epochs: 2
+  max_steps: null
+  project_name: SelfEvolvingPrivacyRL
+  experiment_name: privacypeek_attacker_grpo
+  logger: ["file"]
+  nnodes: 1
+  n_gpus_per_node: 4
+  max_try_make_batch: 20
+  val_freq: 5
+  val_before_train: true
+  val_only: false
+  val_generations_to_log: 3
+  save_freq: 5
+  save_limit: 3
+  save_model_only: false
+  save_checkpoint_path: null
+  load_checkpoint_path: null
+  find_last_checkpoint: true

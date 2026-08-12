@@ -34,6 +34,7 @@ export GUARD_MODEL
 export PRIVACYLENS_HOME=${PRIVACYLENS_HOME:-/home/fangzibang/PrivacyLens}
 export PROCODER_HOME=${PROCODER_HOME:-/home/fangzibang/PromptCoder}
 export PL_STYLE_RATIO=${PL_STYLE_RATIO:-0.0}
+export AGENTDOJO_SIMPLE_RATIO=${AGENTDOJO_SIMPLE_RATIO:-0.0}
 
 export REWRITE_BACKEND=${REWRITE_BACKEND:-vllm}
 
