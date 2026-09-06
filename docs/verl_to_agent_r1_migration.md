@@ -226,14 +226,17 @@ python3 -m agent_r1.trainer.main_agent_ppo \
   custom_reward_function.name=compute_score \
   trainer.project_name=SelfEvolvingPrivacyRL \
   trainer.experiment_name=privacy_grpo \
-  trainer.total_epochs=1 \
-  trainer.max_steps=50 \
+  trainer.total_epochs=1000 \
+  trainer.total_training_steps=50 \
   trainer.test_freq=-1 \
   trainer.save_freq=10 \
   trainer.max_actor_ckpt_to_keep=3 \
-  trainer.n_gpus_per_node=1 \
-  trainer.nnodes=1
+  trainer.n_gpus_per_node=2 \
+  trainer.nnodes=1 \
+  '+actor_rollout_ref.actor.checkpoint.save_contents=["model","optimizer","extra","hf_model"]'
 ```
+
+> **⚠️ `total_epochs` 语义（verl 0.7.0 与旧版不同）**：训练循环是 `for epoch in range(current_epoch, total_epochs)`，步数上限 = `total_epochs × len(dataloader)`；`total_training_steps` 只负责在 `global_steps >= total_training_steps` 时触发「最后一步」并 `return`。所以**必须把 `total_epochs` 设足够大（如 1000），用 `total_training_steps` 控制实际步数**；设 `total_epochs=1` 会导致每轮只能训 1 步，resume 后甚至直接退出（迭代脚本已按此修正）。
 
 对应关系（与原 `examples/config.yaml` + `iterative_train_with_verl.sh` 的 TRAIN_ARGS）：
 
@@ -251,7 +254,7 @@ python3 -m agent_r1.trainer.main_agent_ppo \
 | `algorithm.use_kl_loss=true, kl_coef=1e-2` | `actor_rollout_ref.actor.use_kl_loss=True`（kl_coef 默认 1e-2） | |
 | `trainer.save_checkpoint_path=$SAVE_PATH` | `trainer.default_local_dir=$SAVE_PATH` | |
 | `trainer.val_freq=-1` | `trainer.test_freq=-1` | |
-| `trainer.max_steps`, `total_epochs=1` | 同名，语义相同 | 迭代轮次里继续用累计 max_steps |
+| `trainer.max_steps` | `trainer.total_training_steps` + `trainer.total_epochs=1000` | **语义不同**：total_epochs 是循环上限（设大），total_training_steps 触发提前结束（见下） |
 | — | `critic.enable=False`, `reward_model.enable=False` | GRPO 必须，否则报错 |
 | — | `data.return_raw_chat=True` | prompt 是 chat 列表时必须 |
 | — | `algorithm.norm_adv_by_std_in_grpo=True` | 复现原 GRPO 行为 |
@@ -307,8 +310,12 @@ GUARD_USE_MOCK=true \
 6. **单步流程无需 AgentFlow**：本项目是「模型生成攻击文本 → 外部 defender（HTTP/沙箱）判奖励」，没有多轮工具交互，用默认 `single_step_agent` 即可，不需要写 `recipes/.../base.yaml` 或注册 AgentFlow。（若未来要做「defender 轨迹级训练」的多轮方案，再参考 `recipes/hotpotqa/` 的 AgentFlow 写法。）
 7. **旧配置文件废弃**：`examples/config.yaml`、`examples/config_privacypeek*.yaml` 的 `worker.*` 键在 verl 0.7.0 下不存在，迁移后不再使用（可保留作历史记录）。
 8. **defender（guard）训练同样适用**：`scripts/guard_train.sh` 走同一迭代脚本 + `REWARD_PERSPECTIVE=defender`，迁移方式完全一致（reward 函数体不变，只是视角/权重不同）。
-9. **ray / GPU 布局不变**：attacker 训练仍 `CUDA_VISIBLE_DEVICES=$ATTACKER_GPU`（rollout vLLM 与 FSDP 同卡），guard vLLM 服务仍在独立卡（默认 GPU 2 / 端口 5000）。
+9. **GPU 布局：40GB 单卡放不下 FSDP 4B + vLLM**。实测单卡（A100-40GB）时 FSDP 单卡全量权重+梯度占 ~31GB，vLLM 无法启动；**必须用 2 卡**（`ATTACKER_GPU=0,1` → `n_gpus_per_node=2`，FSDP 双卡 shard 每卡 ~8.6GB，vLLM tp=1 + `gpu_memory_utilization=0.5` 可行）。guard vLLM 服务仍在独立卡（默认 GPU 2 / 端口 5000）。
 10. **环境已就绪，只缺 verl 包**：`AgentPrivacy` 里 vllm 0.11.0 / ray 2.55.1 均满足 verl 0.7.0 的版本要求，补装 `pip install verl==0.7.0` 即可；安装时如提示依赖冲突，以 verl 0.7.0 要求的 vllm/ray 版本范围为准。
+11. **⚠️ 必须 patch verl 0.7.0 的 vLLM max_model_len**（已应用，重装 verl 后需重新打）：`verl/workers/rollout/vllm_rollout/vllm_async_server.py` 第 198 行无条件用 HF `max_position_embeddings` 覆盖用户设置——Qwen3 是 **262144**，40GB 卡上需要 36GB KV cache 直接启动失败。patch 后仅在 `config.max_model_len is None` 时用 HF 默认值；训练时显式传 `actor_rollout_ref.rollout.max_model_len=2048`（≥ max_prompt_length+max_response_length）。
+12. **logger 必须去掉 wandb**：默认 `trainer.logger=["console","wandb"]`，未登录 wandb 会 `UsageError`。传 `trainer.logger='["console"]'`（或登录 wandb）。
+13. **磁盘**：checkpoint 含 `hf_model` 后单步 ~63GB（model+optimizer shards 各 ~20GB + HF 全量 8GB ×2）。冒烟测试和 ray session 别放根分区（实测根分区被 ray spill 写满导致 ENOSPC 中断训练）；迭代脚本的 `SAVE_PATH` 在 `/home/fangzibang/data_32T`（独立 32T 盘）不受影响。训练完成后及时清理测试 checkpoint。
+14. **dataclass 注入的配置键需要 `+` 前缀**：`actor_rollout_ref.actor.checkpoint.save_contents`（CheckpointConfig dataclass 提供，不在 yaml 中）必须写成 `'+actor_rollout_ref.actor.checkpoint.save_contents=["model","optimizer","extra","hf_model"]'`，否则 Hydra 报 "Key is not in struct"。
 
 ## 6. 改动文件清单
 
@@ -318,8 +325,25 @@ GUARD_USE_MOCK=true \
 | `scripts/convert_json_to_parquet.py` | **新增**：JSON→parquet 转换（4.2 的代码） |
 | `training/iterative_train_with_agentr1.sh` | **新增**（或原地改 `iterative_train_with_verl.sh`）：Agent-R1 版迭代训练（4.4/4.5） |
 | `scripts/common.sh` | 修改：cleanup 加 `pkill -f agent_r1.trainer.main_agent_ppo` |
+| `~/.conda/envs/AgentPrivacy/.../verl/workers/rollout/vllm_rollout/vllm_async_server.py` | **已 patch**（max_model_len 覆盖逻辑，见注意事项 11；重装 verl 后需重新打） |
 | `verl/`（vendored） | 建议改名/删除，防止 shadow verl 0.7.0 |
 | `examples/config.yaml` / `config_privacypeek*.yaml` | 废弃（保留作记录） |
+
+### 冒烟验证结果（2026-08-16 已实测通过）
+
+在 `AgentPrivacy` 环境 + GPU 0,1（A100-40GB×2）上，用 8 条样本 + mock guard 跑通：
+
+```
+step:1 - actor/entropy:0.614 - critic/score/mean:0.0825 - response_length/mean:86.4
+        （rollout → RewardLoopWorker 自定义 reward → GRPO update → save checkpoint）
+step:2 - training/global_step:2 - training/epoch:2  （resume_mode=resume_path 从 global_step_1 恢复）
+'Final validation metrics: None'   （is_last_step 正常收尾，EXIT=0）
+```
+
+- ✅ vLLM rollout（patch 后 max_model_len=2048）
+- ✅ 自定义 reward（AgentDojo Simple / standard 模式分流，`critic/score/mean` 正常上报）
+- ✅ checkpoint 完整保存：`model/optimizer/extra_state` shards + `actor/huggingface/`（HF 全量，供下轮 `build_dataset.py` 直接加载）
+- ✅ `latest_checkpointed_iteration.txt` 写入（`resume_mode=auto` 也兼容）
 
 ## 参考
 

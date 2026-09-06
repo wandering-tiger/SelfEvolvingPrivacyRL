@@ -21,6 +21,7 @@ ATTACKER_VLLM_PORT=${ATTACKER_VLLM_PORT:-5001}
 GUARD_MODEL=${GUARD_MODEL:-$ATTACKER_MODEL}
 GUARD_GPU=${GUARD_GPU:-2}
 GUARD_PORT=${GUARD_PORT:-5000}
+export GUARD_PORT
 
 MODEL_PATH=${1:-$ATTACKER_MODEL}
 RUN_ID=${2:-attacker_run}
@@ -38,6 +39,11 @@ export AGENTDOJO_SIMPLE_RATIO=${AGENTDOJO_SIMPLE_RATIO:-0.0}
 
 export REWRITE_BACKEND=${REWRITE_BACKEND:-vllm}
 
+# Ray embeds the temp path in AF_UNIX socket names (107-byte hard limit).
+# Use the canonical 32T mount rather than the longer home-directory symlink.
+export RAY_TMPDIR=${RAY_TMPDIR:-/mnt/32T/data/fzb_data/ray_tmp}
+mkdir -p "$RAY_TMPDIR"
+
 
 # 自动设置 GUARD_OPENAI_URL，复用已有参数
 export GUARD_OPENAI_URL="http://127.0.0.1:${GUARD_PORT}/v1/chat/completions"
@@ -45,12 +51,12 @@ echo "[VLLM][GUARD] model=$GUARD_MODEL gpu=$GUARD_GPU port=$GUARD_PORT run_id=$R
 
 bash "$PROJECT_DIR/vllm_service_init/start.sh" "$GUARD_MODEL" "$RUN_ID" "$GUARD_GPU" "$GUARD_PORT"
 
-sleep 45
+wait_for_guard_service
 
 echo "[TRAIN][ATTACKER] model=$MODEL_PATH gpu=$GPU_ID run_id=$RUN_ID"
-echo "[TRAIN][CONFIG] PL_STYLE_RATIO=$PL_STYLE_RATIO PRIVACYLENS_HOME=$PRIVACYLENS_HOME"
+echo "[TRAIN][CONFIG] PL_STYLE_RATIO=$PL_STYLE_RATIO AGENTDOJO_SIMPLE_RATIO=$AGENTDOJO_SIMPLE_RATIO PRIVACYLENS_HOME=$PRIVACYLENS_HOME"
 
 BASE_MODEL="$MODEL_PATH" \
 GUARD_MODEL="$GUARD_MODEL" \
 CUDA_VISIBLE_DEVICES=$GPU_ID \
-	bash "$PROJECT_DIR/training/iterative_train_with_verl.sh"
+	bash "$PROJECT_DIR/training/iterative_train_with_agentr1.sh"

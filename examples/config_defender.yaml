@@ -1,0 +1,81 @@
+defaults:
+  - ppo_trainer
+  - /overrides/rollout@actor_rollout_ref.rollout
+  - _self_
+
+hydra:
+  searchpath:
+    - pkg://verl.trainer.config
+
+algorithm:
+  adv_estimator: grpo
+  norm_adv_by_std_in_grpo: true
+
+data:
+  # Default aligns with the standard three-GPU defender layout.  The launcher
+  # also derives this from DEFENDER_GPU for other layouts.
+  train_batch_size: 3
+  # Keep this modest: full AgentDojo rows contain nested environment metadata,
+  # and 8 workers caused an exit-time DataLoader worker failure in the smoke.
+  dataloader_num_workers: 2
+  # Full travel/banking/slack tool schemas plus a tool observation reach about
+  # 6.5K tokens.  4K makes AgentEnvLoop skip every sample in some batches.
+  max_prompt_length: 8192
+  max_response_length: 256
+  return_raw_chat: true
+  filter_overlong_prompts: true
+
+actor_rollout_ref:
+  model:
+    enable_gradient_checkpointing: true
+    # Set by DEFENDER_LORA_RANK in the launcher; 0 retains full fine-tuning.
+    lora_rank: 0
+    lora_alpha: 64
+    target_modules: all-linear
+  actor:
+    optim:
+      lr: 1.0e-6
+    ppo_mini_batch_size: 3
+    ppo_micro_batch_size_per_gpu: 1
+    use_kl_loss: true
+    kl_loss_coef: 1.0e-2
+    entropy_coeff: 3.0e-3
+    fsdp_config:
+      param_offload: true
+      optimizer_offload: true
+    checkpoint:
+      save_contents: [model, optimizer, extra, hf_model]
+  rollout:
+    name: vllm
+    # Must exceed max_prompt_length + max_response_length for AgentEnvLoop.
+    max_model_len: 8704
+    tensor_model_parallel_size: 1
+    gpu_memory_utilization: 0.45
+    n: 2
+    temperature: 0.8
+    top_p: 0.95
+    log_prob_micro_batch_size_per_gpu: 1
+    agent:
+      num_workers: 2
+      default_agent_flow: agentdojo_defender
+      agent_flow_config_path: /home/fangzibang/SelfEvolvingPrivacyRL/examples/agentdojo_defender_flow.yaml
+      max_steps: 3
+      skip_special_tokens: true
+  ref:
+    log_prob_micro_batch_size_per_gpu: 1
+    fsdp_config:
+      param_offload: true
+
+critic:
+  enable: false
+reward_model:
+  enable: false
+trainer:
+  logger: [console, file]
+  project_name: SelfEvolvingPrivacyRL
+  total_epochs: 1000
+  val_before_train: false
+  test_freq: -1
+  save_freq: 50
+  max_actor_ckpt_to_keep: 3
+  nnodes: 1

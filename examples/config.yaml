@@ -1,107 +1,85 @@
-data:
-  train_files: /home/fangzibang/SelfEvolvingPrivacyRL/data/train.json
-  val_files: /home/fangzibang/SelfEvolvingPrivacyRL/data/val.json
-  prompt_key: prompt
-  answer_key: sensitive
-  image_key: images
-  video_key: videos
-  image_dir: null
-  video_fps: 2.0
-  max_prompt_length: 512
-  max_response_length: 512
-  rollout_batch_size: 32  # equivalent to verl's data.train_batch_size
-  mini_rollout_batch_size: null  # equivalent to verl's data.gen_batch_size
-  val_batch_size: 32
-  format_prompt: null
-  override_chat_template: null
-  shuffle: true
-  seed: 1
-  min_pixels: 262144
-  max_pixels: 4194304
-  filter_overlong_prompts: false
+# Agent R1 training defaults for SelfEvolvingPrivacyRL.
+#
+# This is the Hydra primary config loaded by
+# training/iterative_train_with_agentr1.sh. Runtime values that change per
+# round (dataset/checkpoint paths, total steps, GPU count) remain shell
+# overrides in that script.
+
+defaults:
+  - ppo_trainer
+  - /overrides/rollout@actor_rollout_ref.rollout
+  - _self_
+
+# Make verl's packaged trainer configs visible when this project-owned config
+# is selected with --config-dir.
+hydra:
+  searchpath:
+    - pkg://verl.trainer.config
 
 algorithm:
   adv_estimator: grpo
-  disable_kl: false
-  use_kl_loss: true
-  kl_penalty: low_var_kl
-  kl_coef: 1.0e-2
-  online_filtering: false  # dapo filter groups
-  filter_key: overall
-  filter_low: 0.01
-  filter_high: 0.99
+  norm_adv_by_std_in_grpo: true
 
-worker:
+data:
+  train_batch_size: 8
+  max_prompt_length: 1024
+  max_response_length: 192
+  return_raw_chat: true
+  filter_overlong_prompts: true
+
+actor_rollout_ref:
+  model:
+    enable_gradient_checkpointing: true
+
   actor:
-    global_batch_size: 32  # equivalent to verl's actor.ppo_mini_batch_size
-    micro_batch_size_per_device_for_update: 1  # equivalent to verl's actor.ppo_micro_batch_size_per_gpu
-    micro_batch_size_per_device_for_experience: 2  # equivalent to verl's rollout.log_prob_micro_batch_size_per_gpu
-    max_grad_norm: 1.0
-    padding_free: true
-    dynamic_batching: true
-    ulysses_size: 1
-    model:
-      model_path: /home/fangzibang/data_32T/fzb_data/ModelScope/Qwen3-4B-Instruct-2507
-      enable_gradient_checkpointing: true
-      trust_remote_code: false
-      freeze_vision_tower: false
     optim:
       lr: 1.0e-6
-      weight_decay: 1.0e-2
-      strategy: adamw  # {adamw, adamw_bf16}
-      lr_warmup_ratio: 0.0
-    fsdp:
-      enable_full_shard: true
-      enable_cpu_offload: false
-      enable_rank0_init: true
-      torch_dtype: bf16     # Use bf16 for actor model to save GPU memory, which is usually acceptable for actor model since it can tolerate some noise in gradients.
-    offload:
-      offload_params: true  # true: more CPU memory; false: more GPU memory
-      offload_optimizer: true  # true: more CPU memory; false: more GPU memory
+    ppo_mini_batch_size: 8
+    ppo_micro_batch_size_per_gpu: 1
+    use_kl_loss: true
+    kl_loss_coef: 1.0e-2
+    entropy_coeff: 5.0e-3
+    fsdp_config:
+      param_offload: true
+      optimizer_offload: true
+    checkpoint:
+      save_contents: [model, optimizer, extra, hf_model]
 
   rollout:
-    n: 2    # Number of rollouts per prompt. Set to 1 for no rollout.
-    temperature: 0.7
+    name: vllm
+    max_model_len: 1280
+    tensor_model_parallel_size: 1
+    gpu_memory_utilization: 0.5
+    n: 2
+    temperature: 1.0
     top_p: 0.95
-    limit_images: 0
-    gpu_memory_utilization: 0.4   # Target GPU memory utilization for rollout. Set to 0 to disable dynamic batch size adjustment.
-    enforce_eager: false
-    enable_chunked_prefill: false
-    tensor_parallel_size: 2     # Tensor parallel size for rollout. Set to 1 to disable tensor parallelism.
-    disable_tqdm: false
-    val_override_config:
-      temperature: 0.7
-      top_p: 0.95
-      n: 1
+    log_prob_micro_batch_size_per_gpu: 1
+    agent:
+      num_workers: 4
 
   ref:
-    fsdp:
-      enable_full_shard: true
-      enable_cpu_offload: true  # true: more CPU memory; false: more GPU memory
-      enable_rank0_init: true
-      torch_dtype: bf16    # Use bf16 for ref model to save GPU memory, which is usually not a problem for ref model since it does not need to backpropagate gradients.
-    offload:
-      offload_params: false
+    log_prob_micro_batch_size_per_gpu: 1
+    fsdp_config:
+      param_offload: true
 
-  reward:
-    reward_function: ./reward/verl_reward_wrapper.py:compute_score
+critic:
+  enable: false
+
+reward_model:
+  enable: false
+
+custom_reward_function:
+  path: /home/fangzibang/SelfEvolvingPrivacyRL/reward/agentr1_reward_wrapper.py
+  name: compute_score
 
 trainer:
-  total_epochs: 2
-  max_steps: null
+  logger: [console, file]
+  log_val_generations: 3
   project_name: SelfEvolvingPrivacyRL
-  experiment_name: privacy_grpo
-  logger: ["file"]    # ["wandb", "file"]
+  # Keep this high; total_training_steps is supplied per round by the script.
+  total_epochs: 1000
+  val_before_train: false
+  test_freq: -1
+  save_freq: 50
+  max_actor_ckpt_to_keep: 3
   nnodes: 1
-  n_gpus_per_node: 2      # Number of GPUs per node for training. Set to 0 for CPU training.
-  max_try_make_batch: 20  # -1 means no limit
-  val_freq: 5  # -1 to disable
-  val_before_train: true
-  val_only: false
-  val_generations_to_log: 3
-  save_freq: 5  # -1 to disable
-  save_limit: 3  # -1 to disable
-  save_model_only: false
-  save_checkpoint_path: null
-  load_checkpoint_path: null
-  find_last_checkpoint: true

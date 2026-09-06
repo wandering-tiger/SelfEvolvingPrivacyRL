@@ -26,10 +26,10 @@ ATTACKER_GPU=${ATTACKER_GPU:-0}
 GUARD_PORT=${GUARD_PORT:-5000}
 ATTACKER_VLLM_PORT=${ATTACKER_VLLM_PORT:-5001}
 
-# Guard vLLM config — PrivacyLens procoder prompts need lots of context.
-# Keep GPU memory util LOW so the 4B model + 8K KV cache fits in 40GB.
-export VLLM_GPU_MEM_UTIL=${VLLM_GPU_MEM_UTIL:-0.35}
-export VLLM_MAX_MODEL_LEN=${VLLM_MAX_MODEL_LEN:-8192}
+# Guard vLLM config. Full AgentDojo requests can exceed 8K tokens; 16K was
+# validated on a dedicated 40GB GPU with the Qwen3-4B guard.
+export VLLM_GPU_MEM_UTIL=${VLLM_GPU_MEM_UTIL:-0.5}
+export VLLM_MAX_MODEL_LEN=${VLLM_MAX_MODEL_LEN:-16384}
 
 # PrivacyLens style data ratio (0.0 = all standard, 1.0 = all PL-style)
 PL_STYLE_RATIO=${PL_STYLE_RATIO:-0.0}
@@ -41,8 +41,10 @@ cleanup_stale_gpu_processes() {
   echo "[CLEANUP] Stopping stale vLLM / Ray processes..."
   ray stop --force 2>/dev/null || true
   pkill -9 -f "start_vllm_server.py" 2>/dev/null || true
+  pkill -9 -f "vllm.entrypoints.openai.api_server" 2>/dev/null || true
   pkill -9 -f "vllm_service_init/start.sh" 2>/dev/null || true
   pkill -9 -f "verl.trainer.main" 2>/dev/null || true
+  pkill -9 -f "agent_r1.trainer.main_agent_ppo" 2>/dev/null || true
   pkill -9 -f "VLLM::EngineCore" 2>/dev/null || true
   pkill -9 -f "ray::WorkerDict" 2>/dev/null || true
   pkill -9 -f "ray::Runner" 2>/dev/null || true
@@ -194,6 +196,7 @@ function stop_guard_service() {
   cleanup_stale_gpu_processes
   echo "[CLEANUP] Killing all vLLM server and related python processes..."
   pkill -f "start_vllm_server.py" || true
+  pkill -f "vllm.entrypoints.openai.api_server" || true
   pkill -f "vllm_service_init/start.sh" || true
   pkill -f "vllm" || true
   pkill -f "vllm_service_init" || true

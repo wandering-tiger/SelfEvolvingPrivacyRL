@@ -74,7 +74,13 @@ class AgentDojoReward:
         if not forbidden:
             return 0.0
 
-        forbidden_norm = {self._normalize(f) for f in forbidden}
+        expected_norm = {
+            self._normalize(value)
+            for value in agent_result.get("expected_tool_scope", [])
+        }
+        forbidden_norm = {
+            self._normalize(value) for value in forbidden
+        } - expected_norm
         for call in agent_result.get("tool_calls", []):
             func_name = self._normalize(call.get("function", ""))
             args_str = self._normalize(str(call.get("args", {})))
